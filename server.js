@@ -5,9 +5,9 @@ const session = require('express-session');
 const bcrypt = require('bcrypt');
 const bodyParser = require('body-parser');
 const crypto = require('crypto');
-const Web3 = require('web3');
-const BigNumber = require('bignumber.js');
+const {Web3} = require('web3');
 const fs = require('fs');
+const {abiArray} = require("./abiArray");
 // const io = require('socket.io')(app);
 
 // Secret ID for session
@@ -40,8 +40,9 @@ app.use(bodyParser.urlencoded({
 // MySQL Connection
 const connection = mysql.createConnection({
     host: IP,
-    user: process.env.database_user,
-    password: process.env.database_password,
+	port: 8889,
+    user: process.env.database_user||"root",
+    password: process.env.database_password||"root",
     database: 'authentifi'
 });
 
@@ -49,378 +50,67 @@ connection.connect(function(err) {
     if (!err) {
         console.log('Connected to MySql!\n');
     } else {
-        console.log('Not connected to MySql.\n');
+        console.log('Not connected to MySql.\n', err);
+		process.exit();
     }
 });
 
 // Web3 connection
-const web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:7545'));
-console.log(`Talking with a geth server ${web3.version.api} \n`);
+const web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:8545'));
+console.log(`Talking with a geth server \n`);
 
-const abiArray = [
-	{
-		"constant": false,
-		"inputs": [
-			{
-				"name": "_code",
-				"type": "string"
-			},
-			{
-				"name": "_hashedEmailRetailer",
-				"type": "string"
-			}
-		],
-		"name": "addRetailerToCode",
-		"outputs": [
-			{
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"payable": true,
-		"stateMutability": "payable",
-		"type": "function"
-	},
-	{
-		"constant": false,
-		"inputs": [
-			{
-				"name": "_code",
-				"type": "string"
-			},
-			{
-				"name": "_oldCustomer",
-				"type": "string"
-			},
-			{
-				"name": "_newCustomer",
-				"type": "string"
-			}
-		],
-		"name": "changeOwner",
-		"outputs": [
-			{
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"payable": true,
-		"stateMutability": "payable",
-		"type": "function"
-	},
-	{
-		"constant": false,
-		"inputs": [
-			{
-				"name": "_code",
-				"type": "string"
-			},
-			{
-				"name": "_brand",
-				"type": "string"
-			},
-			{
-				"name": "_model",
-				"type": "string"
-			},
-			{
-				"name": "_status",
-				"type": "uint256"
-			},
-			{
-				"name": "_description",
-				"type": "string"
-			},
-			{
-				"name": "_manufactuerName",
-				"type": "string"
-			},
-			{
-				"name": "_manufactuerLocation",
-				"type": "string"
-			},
-			{
-				"name": "_manufactuerTimestamp",
-				"type": "string"
-			}
-		],
-		"name": "createCode",
-		"outputs": [
-			{
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"payable": true,
-		"stateMutability": "payable",
-		"type": "function"
-	},
-	{
-		"constant": false,
-		"inputs": [
-			{
-				"name": "_hashedEmail",
-				"type": "string"
-			},
-			{
-				"name": "_name",
-				"type": "string"
-			},
-			{
-				"name": "_phone",
-				"type": "string"
-			}
-		],
-		"name": "createCustomer",
-		"outputs": [
-			{
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"payable": true,
-		"stateMutability": "payable",
-		"type": "function"
-	},
-	{
-		"constant": false,
-		"inputs": [],
-		"name": "createOwner",
-		"outputs": [],
-		"payable": false,
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"constant": false,
-		"inputs": [
-			{
-				"name": "_hashedEmail",
-				"type": "string"
-			},
-			{
-				"name": "_retailerName",
-				"type": "string"
-			},
-			{
-				"name": "_retailerLocation",
-				"type": "string"
-			}
-		],
-		"name": "createRetailer",
-		"outputs": [
-			{
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"payable": true,
-		"stateMutability": "payable",
-		"type": "function"
-	},
-	{
-		"constant": false,
-		"inputs": [
-			{
-				"name": "_code",
-				"type": "string"
-			},
-			{
-				"name": "_retailer",
-				"type": "string"
-			},
-			{
-				"name": "_customer",
-				"type": "string"
-			}
-		],
-		"name": "initialOwner",
-		"outputs": [
-			{
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"payable": true,
-		"stateMutability": "payable",
-		"type": "function"
-	},
-	{
-		"constant": false,
-		"inputs": [
-			{
-				"name": "_code",
-				"type": "string"
-			},
-			{
-				"name": "_customer",
-				"type": "string"
-			}
-		],
-		"name": "reportStolen",
-		"outputs": [
-			{
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"payable": true,
-		"stateMutability": "payable",
-		"type": "function"
-	},
-	{
-		"constant": true,
-		"inputs": [
-			{
-				"name": "_customer",
-				"type": "string"
-			}
-		],
-		"name": "getCodes",
-		"outputs": [
-			{
-				"name": "",
-				"type": "string[]"
-			}
-		],
-		"payable": false,
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"constant": true,
-		"inputs": [
-			{
-				"name": "_code",
-				"type": "string"
-			}
-		],
-		"name": "getCustomerDetails",
-		"outputs": [
-			{
-				"name": "",
-				"type": "string"
-			},
-			{
-				"name": "",
-				"type": "string"
-			}
-		],
-		"payable": false,
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"constant": true,
-		"inputs": [
-			{
-				"name": "_code",
-				"type": "string"
-			}
-		],
-		"name": "getNotOwnedCodeDetails",
-		"outputs": [
-			{
-				"name": "",
-				"type": "string"
-			},
-			{
-				"name": "",
-				"type": "string"
-			},
-			{
-				"name": "",
-				"type": "uint256"
-			},
-			{
-				"name": "",
-				"type": "string"
-			},
-			{
-				"name": "",
-				"type": "string"
-			},
-			{
-				"name": "",
-				"type": "string"
-			},
-			{
-				"name": "",
-				"type": "string"
-			}
-		],
-		"payable": false,
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"constant": true,
-		"inputs": [
-			{
-				"name": "_code",
-				"type": "string"
-			}
-		],
-		"name": "getOwnedCodeDetails",
-		"outputs": [
-			{
-				"name": "",
-				"type": "string"
-			},
-			{
-				"name": "",
-				"type": "string"
-			}
-		],
-		"payable": false,
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"constant": true,
-		"inputs": [
-			{
-				"name": "_code",
-				"type": "string"
-			}
-		],
-		"name": "getretailerDetails",
-		"outputs": [
-			{
-				"name": "",
-				"type": "string"
-			},
-			{
-				"name": "",
-				"type": "string"
-			}
-		],
-		"payable": false,
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"constant": true,
-		"inputs": [],
-		"name": "whoIsOwner",
-		"outputs": [
-			{
-				"name": "",
-				"type": "address"
-			}
-		],
-		"payable": false,
-		"stateMutability": "view",
-		"type": "function"
-	}
-];
+
 
 const address = '';
 
-const contract = web3.eth.contract(abiArray);
+const contractInstance = new web3.eth.Contract(abiArray);
 
-const contractInstance = contract.at(address);
-web3.eth.defaultAccount = web3.eth.coinbase;
+// Try connecting using IPv4 localhost
+
+
+async function getCoinbase() {
+	const provider = new Web3.providers.HttpProvider('http://127.0.0.1:8545')
+	const web32 = new Web3(provider);
+	try {
+		const coinbase = await web32.eth.accounts;
+		console.log('Coinbase:', coinbase);
+	} catch (error) {
+		console.error('Failed to fetch coinbasesjj:', error);
+	}
+}
+
+getCoinbase();
+async function setDefaultAccount() {
+	try {
+		const coinbase = await web3.eth.accounts;
+		if (!coinbase) {
+			console.log('No coinbase account found.');
+			return;
+		}
+
+		// Set the coinbase as the default account for transactions
+		web3.eth.defaultAccount = coinbase[0];
+		console.log('Default account set to coinbase:', coinbase);
+	} catch (error) {
+		console.error('Error fetching coinbase:', error);
+	}
+}
+
+setDefaultAccount().then()
+
+// web3.eth.getCoinbase().then(result =>{
+// 	console.log("result", result)
+// 	if(!result) return;
+// 	web3.eth.defaultAccount = result;
+// }).catch(err=>{
+// 	console.log("Yoo",err)
+// });
+//const contractInstance = contract.at(address);
+//const contractInstance = contract.at(address);
+
+//web3.eth.defaultAccount = web3.eth.coinbase;
+
+
 
 // This function generates a QR code
 function generateQRCode() {
@@ -474,7 +164,7 @@ app.post('/signUp', (req, res) => {
     // Adding the user in MySQL
     connection.query('SELECT * FROM USER WHERE Email = ? LIMIT 1', [email], (error, results) => {
         if (error) {
-            callback(error);
+            console.log(error);
             return res.status(400);
         }
         if (results.length) {
@@ -482,7 +172,7 @@ app.post('/signUp', (req, res) => {
         }
         connection.query('INSERT INTO USER VALUES (?,?,?,?)', [name, email, hashedPassword, phone], (error, results) => {
             if (error) {
-                callback(error);
+                console.log(error);
                 return res.status(400);
             }
             res.status(200).send('Signup successful!');
@@ -517,13 +207,13 @@ app.post('/login', (req, res) => {
     console.log(`Email: ${email} \n`);
     connection.query('SELECT * FROM USER WHERE Email = ? LIMIT 1', [email], (error, results) => {
         if (error) {
-            callback(error);
+            console.log(error);
             return res.status(400);
         }
         if (results.length) {
             connection.query('SELECT Password FROM USER WHERE Email = (?)', [email], (error, results) => {
                 if (error) {
-                    callback(error);
+                    console.log(error);
                     return res.status(400);
                 }
                 let pass = results[0].Password;
@@ -558,7 +248,7 @@ app.post('/retailerSignup', (req, res) => {
     // Adding the retailer in MySQL
     connection.query('SELECT * FROM RETAILER WHERE retailerEmail = ? LIMIT 1', [retailerEmail], (error, results) => {
         if (error) {
-            callback(error);
+            console.log(error);
             return res.status(400).send('Some SQL Error');
         }
         if (results.length) {
@@ -567,7 +257,7 @@ app.post('/retailerSignup', (req, res) => {
         connection.query('INSERT INTO RETAILER VALUES (?,?,?,?)', [retailerName, retailerEmail, retailerLocation,
                                                                     retailerHashedPassword], (error, results) => {
             if (error) {
-                callback(error);
+                console.log(error);
                 return res.status(400).send('Some SQL Error');
             }
             // Adding retailer to Blockchain
@@ -602,7 +292,7 @@ app.post('/retailerLogin', (req, res) => {
     console.log(`Email: ${retailerEmail} \n`);
     connection.query('SELECT retailerHashedPassword FROM RETAILER WHERE retailerEmail = ?', [retailerEmail], (error, results) => {
         if (error) {
-            callback(error);
+            console.log(error);
             return res.status(400);
         }
         let pass = results[0].retailerHashedPassword ;
@@ -625,7 +315,7 @@ app.post('/retailerLogin', (req, res) => {
 app.get('/retailerDetails', (req, res) => {
     connection.query('Select * from RETAILER', (error, results) => {
         if(error) {
-            callback(error);
+            console.log(error);
             return res.status(400).send('ERROR');
         }
         console.log(`Retailer details are:\n ${results} \n`);
