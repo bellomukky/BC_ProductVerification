@@ -69,6 +69,7 @@ contract Authentifi {
         return owner;
     }
 */
+    event CodeCreated(string code, string brand, string model, uint status, string description, string manufacturerName, string manufacturerLocation, string manufacturerTimestamp);
     // Function to create a new code for the product
     function createCode(string _code, string _brand, string _model, uint _status, string _description, string _manufactuerName, string _manufactuerLocation, string _manufactuerTimestamp) public payable returns (uint) {
         codeObj newCode;
@@ -80,6 +81,7 @@ contract Authentifi {
         newCode.manufactuerLocation = _manufactuerLocation;
         newCode.manufactuerTimestamp = _manufactuerTimestamp;
         codeArr[_code] = newCode;
+        emit CodeCreated(_code, _brand, _model, _status, _description, _manufactuerName, _manufactuerLocation, _manufactuerTimestamp);
         return 1;
     }
 
